@@ -9,6 +9,7 @@ import { canUseDOM, InlineSVGError, isSupportedEnvironment, randomString } from 
 export interface Props {
   baseURL?: string;
   cacheRequests?: boolean;
+  cacheFailedRequests?: boolean;
   children?: React.ReactNode;
   description?: string;
   loader?: React.ReactNode;
@@ -52,10 +53,12 @@ export const STATUS = {
   UNSUPPORTED: 'unsupported',
 };
 
-export const storage: StorageItem[] = [];
+// export const storage: StorageItem[] = [];
+export const storage: { [key: string]: StorageItem } = {};
 
 export default class InlineSVG extends React.PureComponent<Props, State> {
   private static defaultProps = {
+    cacheFailedRequests: false,
     cacheRequests: true,
     uniquifyIDs: false,
   };
@@ -69,7 +72,7 @@ export default class InlineSVG extends React.PureComponent<Props, State> {
     this.state = {
       content: '',
       element: null,
-      hasCache: !!props.cacheRequests && !!storage.find((s: StorageItem) => s.url === props.src),
+      hasCache: !!props.cacheRequests && props.src in storage,
       status: STATUS.PENDING,
     };
 
@@ -245,6 +248,7 @@ export default class InlineSVG extends React.PureComponent<Props, State> {
     const {
       baseURL,
       cacheRequests,
+      cacheFailedRequests,
       children,
       description,
       onError,
@@ -286,7 +290,7 @@ export default class InlineSVG extends React.PureComponent<Props, State> {
         },
         () => {
           const { cacheRequests, src } = this.props;
-          const cache = cacheRequests && storage.find(d => d.url === src);
+          const cache = cacheRequests && storage[src];
 
           if (cache) {
             if (cache.loading) {
@@ -352,10 +356,10 @@ export default class InlineSVG extends React.PureComponent<Props, State> {
   };
 
   private request = () => {
-    const { cacheRequests, src } = this.props;
+    const { cacheRequests, cacheFailedRequests, src } = this.props;
 
     if (cacheRequests) {
-      storage.push({ url: src, content: '', loading: true, queue: [] });
+      storage[src] = { url: src, content: '', loading: true, queue: [] };
     }
 
     try {
@@ -369,19 +373,23 @@ export default class InlineSVG extends React.PureComponent<Props, State> {
         })
         .then(content => {
           /* istanbul ignore else */
-          if (cacheRequests) {
-            const cachedItem = storage.find(d => d.url === src);
-            if (cachedItem) {
-              cachedItem.content = content;
-              cachedItem.loading = false;
+          if (cacheRequests && src in storage) {
+            const cachedItem = storage[src];
+            cachedItem.content = content;
+            cachedItem.loading = false;
 
-              cachedItem.queue.forEach((cb: any) => cb(content));
-            }
+            cachedItem.queue.forEach((cb: any) => cb(content));
           }
 
           this.handleLoad(content);
         })
-        .catch(error => this.handleError(error));
+        .catch(error => {
+          if (cacheRequests && !cacheFailedRequests) {
+            delete storage[src];
+          }
+
+          this.handleError(error);
+        });
     } catch (error) {
       this.handleError(new InlineSVGError(error.message));
     }

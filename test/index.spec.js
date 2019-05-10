@@ -191,42 +191,82 @@ describe('react-inlinesvg', () => {
   });
 
   describe('cached requests', () => {
-    it('should request an SVG only once when caching', done => {
-      const second = () => {
+    it('should request an SVG only once when caching and is successful fetch', async () => {
+      const second = () =>
         setup({
           src: fixtures.url,
           onLoad: (src, isCached) => {
             expect(isCached).toBe(true);
-            done();
           },
         });
-      };
 
-      setup({
+      await setup({
         src: fixtures.url,
         onLoad: (src, isCached) => {
           expect(isCached).toBe(false);
-          second();
         },
       });
+
+      await second();
     });
 
-    it('it should call load on newly instantiated icons even if cached', done => {
+    it('should request an SVG again when caching and is failed fetch', async () => {
+      const fixtureBadUrl = `${fixtures.url}lalala`;
+
+      const second = () =>
+        setup({
+          src: fixtureBadUrl,
+          onLoad: (src, isCached) => {
+            expect(isCached).toBe(false);
+          },
+        });
+
+      await setup({
+        src: fixtureBadUrl,
+        onLoad: (src, isCached) => {
+          expect(isCached).toBe(false);
+        },
+      });
+
+      await second();
+    });
+
+    it('should request an SVG only once when caching and `cacheFailedRequest` is true, and is failed fetch', async () => {
+      const fixtureBadUrl = `${fixtures.url}lalala`;
+
+      const second = () =>
+        setup({
+          src: fixtureBadUrl,
+          onLoad: (src, isCached) => {
+            expect(isCached).toBe(true);
+          },
+        });
+
+      await setup({
+        cacheFailedRequest: true,
+        src: fixtureBadUrl,
+        onLoad: (src, isCached) => {
+          expect(isCached).toBe(false);
+        },
+      });
+
+      await second();
+    });
+
+    it('it should call load on newly instantiated icons even if cached', async () => {
       const second = () =>
         setup({
           src: fixtures.url,
           onLoad: value => {
             expect(value).toBe(fixtures.url);
-            done();
           },
         });
 
       setup({
         src: fixtures.url,
-        onLoad: () => {
-          second();
-        },
       });
+
+      await second();
     });
 
     it('should skip the cache if `cacheRequest` is false', async () => {
