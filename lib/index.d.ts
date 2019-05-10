@@ -3,6 +3,7 @@ import { InlineSVGError } from './utils';
 export interface Props {
     baseURL?: string;
     cacheRequests?: boolean;
+    cacheFailedRequests?: boolean;
     children?: React.ReactNode;
     description?: string;
     loader?: React.ReactNode;
@@ -41,7 +42,9 @@ export declare const STATUS: {
     READY: string;
     UNSUPPORTED: string;
 };
-export declare const storage: StorageItem[];
+export declare const storage: {
+    [key: string]: StorageItem;
+};
 export default class InlineSVG extends React.PureComponent<Props, State> {
     private static defaultProps;
     private _isMounted;
